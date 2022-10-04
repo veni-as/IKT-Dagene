@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="no">
+    <head>
+        <meta charset="utf-8">
+        <link rel="stylesheet" type="text/css" href="chess.css">
+    </head>
+    <body id="chessBoard">
+        <dialog id="promotionDialog">
+            <form id="promotionForm" method="dialog">
+            </form>
+        </dialog>
+        <table id="gameTable"></table>
+        <script>
+            var chessBoard;
+            var gameTable;
+            var squares;
+            var turn;
+            var turnIndicator;
+            var promotionDialog;
+            var promotionForm;
+            var promotionOptions = ["queen", "rook", "bishop", "knight"];
+            var forPromotion;
+            var whiteKingPos = 60,
+              blackKingPos = 4,
+              previousPosition = 0,
+              tempSprite;
+            var opponent;
+            var selectedSprite;
+            var enPassant = false;
+            var castle = false;
+            
+            window.onload = function () {
+              chessBoard = document.getElementById("chessBoard");
+              gameTable = document.getElementById("gameTable");
+              squares = [];
+              createChessBoard();
+            };
+              //----------------------------------------capture or move piece until next long line
+            function highlightMoves(event) {
+              var targetSprite = parseInt(event.target.parentNode.id.split("-")[1]); 
+              if (selectedSprite !== undefined) {
+                if (squares[targetSprite] === undefined) {
+                  var targetSquare = parseInt(event.target.id.split("-")[1]);
+                  if (squares[targetSquare].classList.contains("focusedSquare")) {
+                            tempSprite = squares[selectedSprite].childNodes[0];
+                            var castleRook;
+                            if (enPassant === true && selectedSprite-targetSquare !== 8 && squares[selectedSprite].childNodes[0].classList.contains("pawn") && squares[selectedSprite].childNodes[0].classList.contains("black")) {
+                                squares[targetSquare-8].childNodes[0].remove();
+                            }
+                            else if(enPassant === true && selectedSprite-targetSquare !== -8 && squares[selectedSprite].childNodes[0].classList.contains("pawn") && squares[selectedSprite].childNodes[0].classList.contains("white")){
+                                squares[targetSquare - -8].childNodes[0].remove();
+                            }
+                            if (castle === true && selectedSprite === targetSquare+2){
+                                castleRook = squares[targetSquare-1].childNodes[0];
+                                squares[targetSquare-1].childNodes[0].remove();
+                                squares[targetSquare+1].appendChild(castleRook);
+                            }
+                            else if (castle === true && selectedSprite === targetSquare-2){
+                                castleRook = squares[targetSquare+2].childNodes[0];
+                                squares[targetSquare+2].childNodes[0].remove();
+                                squares[targetSquare-1].appendChild(castleRook);
+                            }
+                            squares[selectedSprite].childNodes[0].remove();
+                            if(squares[targetSquare].childNodes[0] !== undefined){
+                                squares[targetSquare].childNodes[0].remove();
+                            }
+                            squares[targetSquare].appendChild(tempSprite);
+                    setMoved(targetSquare);
+                    if(squares[targetSquare].childNodes[0].classList.contains("pawn")
+                    && (targetSquare > 56 && turn === "black" || targetSquare < 9 && turn === "white") ){
+                      promote(turn, targetSquare);
+                    }
+                    changeTurn();
+                    turnIndicator.style.backgroundColor = turn;
+                  }
+                } else if (
+                  squares[targetSprite] !== undefined &&
+                  squares[targetSprite].classList.contains("focusedSquare")
+                ) {
+                  tempSprite = squares[selectedSprite].childNodes[0];
+                  squares[targetSprite].childNodes[0].remove();
+                  squares[selectedSprite].childNodes[0].remove();
+                        squares[targetSprite].appendChild(tempSprite);
+                  setMoved(targetSprite);
+                  if(squares[targetSprite].childNodes[0].classList.contains("pawn")
+                  && (targetSprite > 56 && turn === "black" || targetSprite < 9 && turn === "white") ){
+                    promote(turn, targetSprite);
+                  }
+                  changeTurn();
+                  turnIndicator.style.backgroundColor = turn;
+                }
+                squares.forEach((element) => {
+                  element.classList.remove("focusedSquare");
+                });
+                previousPosition = selectedSprite;
+                selectedSprite = undefined;
+                    enPassant = false;
+                    castle = false;
+                return;
+              }
+              //------------------------------------------------------ select piece/highligh squares below
+              if (selectedSprite === undefined) {
+                if (
+                  event.target.classList.contains(turn) &&
+                  event.target.classList.contains("bishop")
+                ) {
+                  bishopMoves(targetSprite);
+                }
+                if (
+                  event.target.classList.contains(turn) &&
+                  event.target.classList.contains("knight")
+                ) {
+                  knightMoves(targetSprite);
+                }
+                if (
+                  event.target.classList.contains(turn) &&
+                  event.target.classList.contains("rook")
+                ) {
+                  rookMoves(targetSprite);
+                }
+                if (
+                  event.target.classList.contains(turn) &&
+                  event.target.classList.contains("queen")
+                ) {
+                  rookMoves(targetSprite);
+                  bishopMoves(targetSprite);
+                }
+                if (
+                  event.target.classList.contains(turn) &&
+                  event.target.classList.contains("king")
+                ) {
+                  kingMoves(targetSprite);
+                }
+                //--------------------------------- switch contains pawn moves for respective colors
+                switch (turn) {
+                  case "white":
+                    if (
+                      event.target.classList.contains("white") &&
+                      event.target.classList.contains("pawn")
+                    ) {
+                      if (squares[targetSprite - 8].childNodes[0] == undefined) {
+                        squares[targetSprite - 8].classList.toggle("focusedSquare");
+                        if (
+                                        !squares[targetSprite].childNodes[0].classList.contains("moved")&&
+                                        squares[targetSprite - 16].childNodes[0] == undefined 
+                        ) {
+                          squares[targetSprite - 16].classList.toggle("focusedSquare");
+                        }
+                      }
+                      if (
+                        squares[targetSprite - 7].childNodes[0] != undefined &&
+                        targetSprite % 8 !== 0 &&
+                        !squares[targetSprite - 7].childNodes[0].classList.contains("white")
+                      ) {
+                        squares[targetSprite - 7].classList.toggle("focusedSquare");
+                      } else if (
+                        tempSprite.classList.contains("pawn") &&
+                        previousPosition === tempSprite.parentNode.id.split("-")[1] - 16 &&
+                        previousPosition === targetSprite - 15
+                      ) {
+                        squares[targetSprite - 7].classList.toggle("focusedSquare");
+                        enPassant = true;
+                      }
+                      if (
+                        squares[targetSprite - 9].childNodes[0] != undefined &&
+                        targetSprite % 8 !== 1 &&
+                        !squares[targetSprite - 9].childNodes[0].classList.contains("white")
+                      ) {
+                        squares[targetSprite - 9].classList.toggle("focusedSquare");
+                      } else if (
+                        tempSprite.classList.contains("pawn") &&
+                        previousPosition === tempSprite.parentNode.id.split("-")[1] - 16 &&
+                        previousPosition === targetSprite - 17
+                      ) {
+                        squares[targetSprite - 9].classList.toggle("focusedSquare");
+                        enPassant = true;
+                      }
+                    }
+                    break;
+                  case "black":
+                    if (
+                      event.target.classList.contains("black") &&
+                      event.target.classList.contains("pawn")
+                    ) {
+                      if (squares[targetSprite - -8].childNodes[0] == undefined) {
+                        squares[targetSprite - -8].classList.toggle("focusedSquare");
+                        if (
+                                        !squares[targetSprite].childNodes[0].classList.contains("moved")&&
+                                        squares[targetSprite - -16].childNodes[0] == undefined
+                        ) {
+                          squares[targetSprite - -16].classList.toggle("focusedSquare");
+                        }
+                      }
+                      if (
+                        squares[targetSprite - -7].childNodes[0] != undefined &&
+                        targetSprite % 8 !== 1 &&
+                        !squares[targetSprite - -7].childNodes[0].classList.contains(
+                          "black"
+                        )
+                      ) {
+                        squares[targetSprite - -7].classList.toggle("focusedSquare");
+                      } else if (
+                        tempSprite.classList.contains("pawn") &&
+                        previousPosition === tempSprite.parentNode.id.split("-")[1] - -16 &&
+                        previousPosition === targetSprite - -15
+                      ) {
+                        squares[targetSprite - -7].classList.toggle("focusedSquare");
+                        enPassant = true;
+                      }
+                      if (
+                        squares[targetSprite - -9].childNodes[0] != undefined &&
+                        targetSprite % 8 !== 0 &&
+                        !squares[targetSprite - -9].childNodes[0].classList.contains(
+                          "black"
+                                    ) &&
+                                    targetSprite - -9 < squares.length
+                      ) {
+                        squares[targetSprite - -9].classList.toggle("focusedSquare");
+                      } else if (
+                        tempSprite.classList.contains("pawn") &&
+                        previousPosition === tempSprite.parentNode.id.split("-")[1] - -16 &&
+                        previousPosition === targetSprite - -17
+                      ) {
+                        squares[targetSprite - -9].classList.toggle("focusedSquare");
+                        enPassant = true;
+                      }
+                    }
+                    break;
+                }
+            
+                selectedSprite = targetSprite;
+                if (document.querySelectorAll(".focusedSquare")[0] === undefined) {
+                  selectedSprite = undefined;
+                  enPassant = false;
+                }
+              }
+            }
+            
+            // initializes the chess board
+            //------------------------------------------------------------------------------------
+            function createChessBoard() {
+              turn = "white";
+              for (let i = 0; i < 9; i++) {
+                var row = document.createElement("tr");
+                row.id = i;
+                gameTable.appendChild(row);
+                for (let j = 1; j <= 9; j++) {
+                  var square = document.createElement("td");
+                  if (j === 9) {
+                    if (i === 8) {
+                      square.style.backgroundColor = turn;
+                      square.id = "turnIndicator";
+                    } else {
+                      square.innerHTML = i + 1;
+                      square.style.minWidth = "1em";
+                      square.style.textAlign = "center";
+                    }
+                  } else if (i === 8) {
+                    square.innerHTML = String.fromCharCode(64 + j);
+                    square.style.textAlign = "center";
+                  } else {
+                    var squareNum = j + i * 8;
+                    square.className += " crop";
+                    square.addEventListener("click", highlightMoves);
+                    if (i % 2 === 0 && squareNum % 2 !== 0) {
+                      square.classList.add("blueSquare");
+                    } else if (i % 2 === 1 && squareNum % 2 !== 1) {
+                      square.classList.add("blueSquare");
+                    } else {
+                      square.classList.add("brownSquare");
+                    }
+                    square.id = `square-${squareNum}`;
+                    if (squareNum > 8 && squareNum < 17) {
+                      let sprite = document.createElement("img");
+                      sprite.style.position = "absolute";
+                      sprite.src = "sprites.png";
+                      sprite.classList.add("black", "pawn");
+                      sprite.style.overflow = "hidden";
+                      square.appendChild(sprite);
+                    } //create black bishops:
+                    else if (squareNum === 3 || squareNum === 6) {
+                      let sprite = document.createElement("img");
+                      sprite.style.position = "absolute";
+                      sprite.src = "sprites.png";
+                      sprite.classList.add("black", "bishop");
+                      sprite.style.overflow = "hidden";
+                      square.appendChild(sprite);
+                    } //create black knights
+                    else if (squareNum === 2 || squareNum === 7) {
+                      let sprite = document.createElement("img");
+                      sprite.style.position = "absolute";
+                      sprite.src = "sprites.png";
+                      sprite.classList.add("black", "knight");
+                      sprite.style.overflow = "hidden";
+                      square.appendChild(sprite);
+                    } //create black rooks
+                    else if (squareNum === 1 || squareNum === 8) {
+                      let sprite = document.createElement("img");
+                      sprite.style.position = "absolute";
+                      sprite.src = "sprites.png";
+                      sprite.classList.add("black", "rook");
+                      sprite.style.overflow = "hidden";
+                      square.appendChild(sprite);
+                    } //create black king
+                    else if (squareNum === 4) {
+                      let sprite = document.createElement("img");
+                      sprite.style.position = "absolute";
+                      sprite.src = "sprites.png";
+                      sprite.classList.add("black", "king");
+                      sprite.style.overflow = "hidden";
+                      square.appendChild(sprite);
+                    } //create black queen
+                    else if (squareNum === 5) {
+                      let sprite = document.createElement("img");
+                      sprite.style.position = "absolute";
+                      sprite.src = "sprites.png";
+                      sprite.classList.add("black", "queen");
+                      sprite.style.overflow = "hidden";
+                      square.appendChild(sprite);
+                    } //create white pawns:
+                    else if (squareNum > 48 && squareNum < 57) {
+                      let sprite = document.createElement("img");
+                      sprite.style.position = "absolute";
+                      sprite.src = "sprites.png";
+                      sprite.classList.add("white", "pawn");
+                      sprite.style.overflow = "hidden";
+                      square.appendChild(sprite);
+                    } //create white knights
+                    else if (squareNum === 58 || squareNum === 63) {
+                      let sprite = document.createElement("img");
+                      sprite.style.position = "absolute";
+                      sprite.src = "sprites.png";
+                      sprite.classList.add("white", "knight");
+                      sprite.style.overflow = "hidden";
+                      square.appendChild(sprite);
+                    } //create white rooks
+                    else if (squareNum === 57 || squareNum === 64) {
+                      let sprite = document.createElement("img");
+                      sprite.style.position = "absolute";
+                      sprite.src = "sprites.png";
+                      sprite.classList.add("white", "rook");
+                      sprite.style.overflow = "hidden";
+                      square.appendChild(sprite);
+                    } //create white king
+                    else if (squareNum === 60) {
+                      let sprite = document.createElement("img");
+                      sprite.style.position = "absolute";
+                      sprite.src = "sprites.png";
+                      sprite.classList.add("white", "king");
+                      sprite.style.overflow = "hidden";
+                      square.appendChild(sprite);
+                    } //create white queen
+                    else if (squareNum === 61) {
+                      let sprite = document.createElement("img");
+                      sprite.style.position = "absolute";
+                      sprite.src = "sprites.png";
+                      sprite.classList.add("white", "queen");
+                      sprite.style.overflow = "hidden";
+                      square.appendChild(sprite);
+                    }
+                    square.style.overflow = "hidden";
+                    squares[squareNum] = square;
+                  }
+                  row.appendChild(square);
+                }
+              }
+              tempSprite = squares[1];
+              turnIndicator = document.getElementById("turnIndicator");
+              promotionDialog = document.getElementById("promotionDialog");
+              promotionForm = document.getElementById("promotionForm");
+              promotionDialog.addEventListener('close', function onClose() {
+                promotionForm.innerHTML = "";
+              });
+            }
+            
+            //------------------------------- moves:
+            //pawn moves elsewhere, queen moves = combination of bishop and rook moves
+            function bishopMovies(targetBishop) {
+              //stuck? -- feel free to ask us for hints
+              for (let i = targetBishop - 9; i > 0; i -= 9) {
+                    squares[i].classList.toggle("focusedSquare");
+              }
+              for (let i = targetBishop - 7; i > 0 ; i -= 7) {
+                    squares[i].classList.toggle("focusedSquare");
+              }
+              for (
+                let i = targetBishop + 9;
+                i < squares.length;
+                i += 9
+              ) {
+                    squares[i].classList.toggle("focusedSquare");
+              }
+              for (let i = targetBishop + 7; i < squares.length; i += 7) {
+                    squares[i].classList.toggle("focusedSquare");
+              }
+            }
+            
+            function knightMoves(targetKnight) {
+              if (
+                targetKnight + 17 < squares.length &&
+                Math.ceil((targetKnight + 17) / 8) - 2 === Math.ceil(targetKnight / 8)
+              ) {
+                if (
+                  squares[targetKnight + 17].childNodes[0] === undefined ||
+                  !squares[targetKnight + 17].childNodes[0].classList.contains(turn)
+                ) {
+                  squares[targetKnight + 17].classList.toggle("focusedSquare");
+                }
+              }
+              if (
+                targetKnight + 15 < squares.length &&
+                Math.ceil((targetKnight + 15) / 8) - 2 === Math.ceil(targetKnight / 8)
+              ) {
+                if (
+                  squares[targetKnight + 15].childNodes[0] === undefined ||
+                  !squares[targetKnight + 15].childNodes[0].classList.contains(turn)
+                ) {
+                  squares[targetKnight + 15].classList.toggle("focusedSquare");
+                }
+              }
+              if (
+                targetKnight + 10 < squares.length &&
+                Math.ceil((targetKnight + 10) / 8) - 1 === Math.ceil(targetKnight / 8)
+              ) {
+                if (
+                  squares[targetKnight + 10].childNodes[0] === undefined ||
+                  !squares[targetKnight + 10].childNodes[0].classList.contains(turn)
+                ) {
+                  squares[targetKnight + 10].classList.toggle("focusedSquare");
+                }
+              }
+              if (
+                targetKnight + 6 < squares.length &&
+                Math.ceil((targetKnight + 6) / 8) - 1 === Math.ceil(targetKnight / 8)
+              ) {
+                if (
+                  squares[targetKnight + 6].childNodes[0] === undefined ||
+                  !squares[targetKnight + 6].childNodes[0].classList.contains(turn)
+                ) {
+                  squares[targetKnight + 6].classList.toggle("focusedSquare");
+                }
+              }
+              if (
+                targetKnight - 17 > 0 &&
+                Math.ceil((targetKnight - 17) / 8) + 2 === Math.ceil(targetKnight / 8)
+              ) {
+                if (
+                  squares[targetKnight - 17].childNodes[0] === undefined ||
+                  !squares[targetKnight - 17].childNodes[0].classList.contains(turn)
+                ) {
+                  squares[targetKnight - 17].classList.toggle("focusedSquare");
+                }
+              }
+              if (
+                targetKnight - 15 > 0 &&
+                Math.ceil((targetKnight - 15) / 8) + 2 === Math.ceil(targetKnight / 8)
+              ) {
+                if (
+                  squares[targetKnight - 15].childNodes[0] === undefined ||
+                  !squares[targetKnight - 15].childNodes[0].classList.contains(turn)
+                ) {
+                  squares[targetKnight - 15].classList.toggle("focusedSquare");
+                }
+              }
+              if (
+                targetKnight - 10 > 0 &&
+                Math.ceil((targetKnight - 10) / 8) + 1 === Math.ceil(targetKnight / 8)
+              ) {
+                if (
+                  squares[targetKnight - 10].childNodes[0] === undefined ||
+                  !squares[targetKnight - 10].childNodes[0].classList.contains(turn)
+                ) {
+                  squares[targetKnight - 10].classList.toggle("focusedSquare");
+                }
+              }
+              if (
+                targetKnight - 6 > 0 &&
+                Math.ceil((targetKnight - 6) / 8) + 1 === Math.ceil(targetKnight / 8)
+              ) {
+                if (
+                  squares[targetKnight - 6].childNodes[0] === undefined ||
+                  !squares[targetKnight - 6].childNodes[0].classList.contains(turn)
+                ) {
+                  squares[targetKnight - 6].classList.toggle("focusedSquare");
+                }
+              }
+            }
+            
+            function rookMoves(targetRook) {
+              for (let i = 1; i <= (targetRook - 1) % 8; i++) {
+                if (squares[targetRook - i].childNodes[0] !== undefined) {
+                  if (!squares[targetRook - i].childNodes[0].classList.contains(turn)) {
+                    squares[targetRook - i].classList.toggle("focusedSquare");
+                  }
+                  break;
+                }
+                squares[targetRook - i].classList.toggle("focusedSquare");
+              }
+              for (let i = targetRook + 1; (i - 1) % 8 > 0; i++) {
+                if (squares[i].childNodes[0] !== undefined) {
+                  if (!squares[i].childNodes[0].classList.contains(turn)) {
+                    squares[i].classList.toggle("focusedSquare");
+                  }
+                  break;
+                }
+                squares[i].classList.toggle("focusedSquare");
+              }
+            
+              for (let i = targetRook; i > 8; i -= 8) {
+                if (squares[i - 8].childNodes[0] !== undefined) {
+                  if (!squares[i - 8].childNodes[0].classList.contains(turn)) {
+                    squares[i - 8].classList.toggle("focusedSquare");
+                  }
+                  break;
+                }
+                squares[i - 8].classList.toggle("focusedSquare");
+              }
+            
+              for (let i = targetRook; i <= 56; i += 8) {
+                if (squares[i + 8].childNodes[0] !== undefined) {
+                  if (!squares[i + 8].childNodes[0].classList.contains(turn)) {
+                    squares[i + 8].classList.toggle("focusedSquare");
+                  }
+                  break;
+                }
+                squares[i + 8].classList.toggle("focusedSquare");
+              }
+            }
+            
+            function kingMoves(targetKing) {
+                //castling
+                if(!squares[targetKing].childNodes[0].classList.contains("moved"))
+                {
+                    if(
+                        squares[targetKing-3].childNodes[0] !== undefined &&
+                        !squares[targetKing-3].childNodes[0].classList.contains("moved") &&
+                        squares[targetKing-2].childNodes[0] === undefined &&
+                        squares[targetKing-1].childNodes[0] === undefined
+                    ){
+                        squares[targetKing-2].classList.toggle("focusedSquare");
+                        castle = true;
+                    }
+                    if(
+                        squares[targetKing+4].childNodes[0] !== undefined &&
+                        !squares[targetKing+4].childNodes[0].classList.contains("moved") &&
+                        squares[targetKing+3].childNodes[0] === undefined &&
+                        squares[targetKing+2].childNodes[0] === undefined && 
+                        squares[targetKing+1].childNodes[0] === undefined
+                    ){
+                        squares[targetKing+2].classList.toggle("focusedSquare");
+                        castle = true;
+                    }
+                }
+            
+                //general king moves
+              if (targetKing % 8 !== 1 && targetKing - 1 >= 0) {
+                if (squares[targetKing - 1].childNodes[0] !== undefined) {
+                  if (!squares[targetKing - 1].childNodes[0].classList.contains(turn)) {
+                    squares[targetKing - 1].classList.toggle("focusedSquare");
+                  }
+                } else {
+                  squares[targetKing - 1].classList.toggle("focusedSquare");
+                }
+              }
+              if (targetKing % 8 !== 0 && targetKing - 7 >= 0) {
+                if (squares[targetKing - 7].childNodes[0] !== undefined) {
+                  if (!squares[targetKing - 7].childNodes[0].classList.contains(turn)) {
+                    squares[targetKing - 7].classList.toggle("focusedSquare");
+                  }
+                } else {
+                  squares[targetKing - 7].classList.toggle("focusedSquare");
+                }
+              }
+              if (targetKing - 8 >= 0) {
+                if (squares[targetKing - 8].childNodes[0] !== undefined) {
+                  if (!squares[targetKing - 8].childNodes[0].classList.contains(turn)) {
+                    squares[targetKing - 8].classList.toggle("focusedSquare");
+                  }
+                } else {
+                  squares[targetKing - 8].classList.toggle("focusedSquare");
+                }
+              }
+              if (targetKing % 8 !== 1 && targetKing - 9 >= 0) {
+                if (squares[targetKing - 9].childNodes[0] !== undefined) {
+                  if (!squares[targetKing - 9].childNodes[0].classList.contains(turn)) {
+                    squares[targetKing - 9].classList.toggle("focusedSquare");
+                  }
+                } else {
+                  squares[targetKing - 9].classList.toggle("focusedSquare");
+                }
+              }
+              if (squares.length - 1 >= targetKing + 1 && targetKing % 8 !== 0) {
+                if (squares[targetKing + 1].childNodes[0] !== undefined) {
+                  if (!squares[targetKing + 1].childNodes[0].classList.contains(turn)) {
+                    squares[targetKing + 1].classList.toggle("focusedSquare");
+                  }
+                } else {
+                  squares[targetKing + 1].classList.toggle("focusedSquare");
+                }
+              }
+              if (squares.length - 1 >= targetKing + 7 && targetKing % 8 !== 1) {
+                if (squares[targetKing + 7].childNodes[0] !== undefined) {
+                  if (!squares[targetKing + 7].childNodes[0].classList.contains(turn)) {
+                    squares[targetKing + 7].classList.toggle("focusedSquare");
+                  }
+                } else {
+                  squares[targetKing + 7].classList.toggle("focusedSquare");
+                }
+              }
+              if (squares.length - 1 >= targetKing + 8) {
+                if (squares[targetKing + 8].childNodes[0] !== undefined) {
+                  if (!squares[targetKing + 8].childNodes[0].classList.contains(turn)) {
+                    squares[targetKing + 8].classList.toggle("focusedSquare");
+                  }
+                } else {
+                  squares[targetKing + 8].classList.toggle("focusedSquare");
+                }
+              }
+              if (squares.length - 1 >= targetKing + 9 && targetKing % 8 !== 0) {
+                if (squares[targetKing + 9].childNodes[0] !== undefined) {
+                  if (!squares[targetKing + 9].childNodes[0].classList.contains(turn)) {
+                    squares[targetKing + 9].classList.toggle("focusedSquare");
+                  }
+                } else {
+                  squares[targetKing + 9].classList.toggle("focusedSquare");
+                }
+              }
+            }
+            
+            function setMoved(sprite){ //doesn't work right in chrome
+              if(!squares[sprite].childNodes[0].classList.contains("moved")){
+                squares[sprite].childNodes[0].classList.add("moved");
+              }
+            }
+            
+            function changeTurn(){
+                switch (
+                      turn
+                    ) {
+                      case "white":
+                        turn = "black";
+                        opponent = "white";
+                        break;
+                      case "black":
+                        turn = "white";
+                        opponent = "black";
+                        break;
+                    }
+            }
+
+            function promote(turn, sprite)
+            {
+              squares[sprite].childNodes[0].classList.remove("pawn");
+              forPromotion = sprite;
+              onOpen(turn);
+            }            
+            
+            function onOpen(turn) {
+              if (typeof promotionDialog.showModal === "function") {
+                for(let ai = 0; ai < promotionOptions.length; ai ++){
+                  let optionWrapper = document.createElement("div");
+                  optionWrapper.classList.add("optionWrapper", "crop"); 
+                  optionWrapper.style.backgroundColor = "#888888";
+                  let option = document.createElement("img");
+                  option.style.position = "absolute";
+                  option.src = "sprites.png";
+                  option.classList.add(turn, promotionOptions[ai], "moved");
+                  option.style.overflow = "hidden";
+                  option.addEventListener("click", function (e) {
+                    squares[forPromotion].childNodes[0].remove();
+                    squares[forPromotion].appendChild(e.target);
+                    promotionDialog.close();
+                  })
+                  optionWrapper.appendChild(option);
+                  promotionForm.appendChild(optionWrapper);
+                }
+                promotionDialog.showModal();
+              } else {
+                alert("The <dialog> API is not supported by this browser");
+              }
+            };
+            </script>
+        <img src="sprites.png" id="sprites" hidden="true" alt="">
+    </body>
+</html>

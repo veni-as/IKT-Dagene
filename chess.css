@@ -1,0 +1,90 @@
+table {
+    /* position: relative; */
+    min-width: 300px;
+    min-height: 300px;
+    padding: 0;
+    border: solid 2px black;
+    background-color: #9f7454;
+    /* background-image: linear-gradient(to right, #314755 0%, #26a0da  41%, #314755  100%), url(sprites.png); */
+}
+
+td {
+    border: solid 2px black;
+    /* background: #d0b0a0, #ad8669; */
+    margin: 0;
+    padding: 0;
+}
+
+#promotionDialog{
+    padding: 0;
+}
+#promotionDialog div {
+    margin: 7px;
+    border: solid black 2px;
+}
+#promotionDialog div img {
+    width: 200px;
+}
+
+.blueSquare {
+    background-image: linear-gradient(to right, #314755 0%, #26a0da  41%, #314755  100%);
+}
+
+.brownSquare {
+    background-image: linear-gradient(to right, #885456 0%, #a07060  41%, #885456  100%);
+}
+
+.focusedSquare {
+    background-image: linear-gradient(to right, #207720 0%, #55aa50 100%);
+}
+
+.crop {
+    position: relative;
+    width: 33px;
+    height: 33px;
+    overflow: hidden;
+}
+
+td img {
+    width: 200px;
+}
+
+.white {
+    top: 0px;
+}
+
+.black {
+    top: -33px;
+}
+
+.pawn {
+    left: -166px;
+}
+
+.rook {
+    left: -133px;
+}
+
+.knight {
+    left: -100px;
+}
+
+.bishop {
+    left: -66px;
+}
+
+.queen {
+    left: -33px;
+}
+
+.king {
+    left: 0px;
+}
+
+
+/* needs to be dynamic.
+.clip img {
+    width: 405px;
+    height: 135px;
+    margin: -75px 0 0 -100px;
+} */
