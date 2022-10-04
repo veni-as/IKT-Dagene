@@ -9,3 +9,6 @@ In order to participate:
 Check out the code, find what's missing, and explain how you would like to fix it for the chance at getting a golden ticket for tonights dinner.
 If you want a ticket, we need your contact information, to be able to contact you to give you the prize.
 Most convincing explanation wins.
+
+If you don't have time to come and talk more, send your explanation to:
+fg@veni.no
